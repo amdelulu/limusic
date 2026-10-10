@@ -102,11 +102,11 @@
 </script>
 
 <aside
-	class="flex h-full w-16 shrink-0 flex-col border-r bg-sidebar p-3 text-sidebar-foreground {wide(
+	class="flex h-full w-16 shrink-0 flex-col border-r bg-sidebar p-3 text-sidebar-foreground max-lg:h-14 max-lg:w-full max-lg:flex-row max-lg:border-r-0 max-lg:border-t max-lg:p-1 {wide(
 		'lg:w-60'
 	)}"
 >
-	<div class="flex items-center justify-center px-2 py-2 {wide('lg:justify-between')}">
+	<div class="flex items-center justify-center px-2 py-2 max-lg:hidden {wide('lg:justify-between')}">
 		<span class="hidden font-heading text-lg font-bold tracking-tight {wide('lg:block')}">Limusic</span>
 		<!-- Column when collapsed: the two buttons don't fit side by side in the 64px rail. -->
 		<div class="flex items-center gap-1 {collapsed ? 'flex-col' : ''}">
@@ -139,12 +139,12 @@
 		</div>
 	</div>
 
-	<nav class="mt-2 flex flex-col gap-1">
+	<nav class="mt-2 flex flex-col gap-1 max-lg:mt-0 max-lg:flex-1 max-lg:flex-row max-lg:items-stretch max-lg:justify-around">
 		{#each nav as n (n.href)}
 			<a
 				href={n.href}
 				title={n.label}
-				class="group relative flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors {wide(
+				class="group relative flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors max-lg:min-w-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0.5 max-lg:px-1 max-lg:py-1 {wide(
 					'lg:justify-start'
 				)} {isActive(n.href)
 					? 'bg-primary/10 text-primary'
@@ -160,13 +160,13 @@
 					icon={n.icon}
 					class="h-5 w-5 shrink-0"
 				/>
-				<span class="hidden {wide('lg:inline')}">{n.label}</span>
+				<span class="hidden {wide('lg:inline')} max-lg:inline max-lg:text-[10px]">{n.label}</span>
 			</a>
 		{/each}
 		<button
 			onclick={() => (ui.settingsOpen = true)}
 			title={t('nav.settings')}
-			class="group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground {wide(
+			class="group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground max-lg:min-w-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0.5 max-lg:px-1 max-lg:py-1 {wide(
 				'lg:justify-start'
 			)}"
 		>
@@ -174,7 +174,7 @@
 				icon={Settings01Icon}
 				class="h-5 w-5 shrink-0"
 			/>
-			<span class="hidden {wide('lg:inline')}">{t('nav.settings')}</span>
+			<span class="hidden {wide('lg:inline')} max-lg:inline max-lg:text-[10px]">{t('nav.settings')}</span>
 		</button>
 	</nav>
 

@@ -246,13 +246,14 @@
 	     12px, not `rounded-lg`: that resolves to --radius, which every theme sets differently, so
 	     the window corner used to change with the theme. This is the GNOME/Adwaita value (#65). -->
 	<div
-		class="relative flex h-screen flex-col overflow-hidden text-foreground {video.hole
+		class="relative flex h-dvh flex-col overflow-hidden text-foreground {video.hole
 			? ''
 			: 'bg-background'} {win.maximized ||
 		ui.theaterOpen ||
 		win.chrome !== 'off'
 			? ''
 			: 'rounded-[12px]'}"
+		style="padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"
 	>
 		{#if video.hole}
 			<!-- Linux: mpv draws the music video underneath the page (nativevideo.rs), so the page
@@ -269,7 +270,7 @@
 		<ResizeBorders />
 		<Titlebar />
 		<!-- relative: the queue and lyrics panels are absolute overlays inside it (see QueuePanel). -->
-		<div class="relative flex min-h-0 flex-1">
+		<div class="relative flex min-h-0 flex-1 max-lg:flex-col-reverse">
 			<Sidebar />
 			<!-- dragScroll: dragging a card up to home's Shortcuts grid has to be possible from anywhere in
 			     the feed, so aiming at the top edge scrolls this container while the drag is in flight. -->
