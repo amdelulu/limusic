@@ -1,0 +1,229 @@
+name: iOS spike
+
+# Feasibility probe for an iOS port. Answers "what breaks?" and reports it; it is not a release
+# pipeline and nothing here is expected to be fully green yet.
+#
+# WHY THIS EXISTS: the desktop build is welded to things iOS does not have. `crates/player` links
+# libmpv (no iOS build in the tree), `limusic-app` pulls in rustypipe-botguard (V8 via deno_core),
+# and src-tauri/Cargo.toml lists tray-icon, autostart, global-shortcut, single-instance, updater,
+# souvlaki, discord-rich-presence and notify-rust as unconditional dependencies. Rather than guess
+# which of those stop an iOS build, this runs the real thing on a macOS runner and writes the
+# result into the job summary.
+#
+# THREE JOBS, DELIBERATELY SEPARATE:
+#   pure-rust  the crates that should already work (`-p innertube -p listen-protocol`, the same
+#              subset checks.yml calls "builds on a bare runner"). This one is a real gate.
+#   probe      the crates that probably will not. Each probe reports pass/fail to the summary and
+#              never fails the job, so one blocker does not hide the next.
+#   tauri-ios  `cargo tauri ios init` + a simulator build. Best effort, same reporting.
+#
+# `cargo check` does not link, so a pass there says the code compiles for iOS, not that it can be
+# linked. libmpv2-sys only emits `cargo:rustc-link-lib=mpv` (see docs/BUILD-PLATFORMS.md), so the
+# libmpv problem shows up at `cargo build`, not `cargo check`. The probe runs both for that reason.
+
+on:
+  push:
+    branches: [ios-port]
+  # Only offered in the Actions UI once this file is on the default branch; until then the push
+  # trigger above is what runs it.
+  workflow_dispatch:
+
+concurrency:
+  group: ios-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  pure-rust:
+    # Pinned rather than macos-latest, matching macos-release.yml, so a runner image bump cannot
+    # change the Xcode/SDK under this job without a visible diff.
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-ios, aarch64-apple-ios-sim]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios-${{ matrix.target }}
+
+      - name: cargo check (pure-Rust crates)
+        run: cargo check -p innertube -p listen-protocol --target ${{ matrix.target }}
+
+  probe:
+    runs-on: macos-14
+    env:
+      TARGET: aarch64-apple-ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios-probe
+
+      # The UI has to exist before limusic-app compiles: tauri's generate_context! embeds
+      # `frontendDist` (../ui/build) at build time and errors if it is missing, which would mask
+      # every real blocker behind a "path doesn't exist" error.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Build the UI
+        working-directory: ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Probe
+        shell: bash
+        run: |
+          set -u
+          mkdir -p probe-logs
+          {
+            echo "## iOS spike probe"
+            echo
+            echo "Target: \`$TARGET\`, runner: macos-14. Compile-level (\`check\`) and link-level (\`build\`) are separate rows on purpose."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # probe <name> <command...>: run it, log it, report pass/fail plus the first errors.
+          # Never exits non-zero, so every probe gets to run.
+          probe() {
+            local name="$1"; shift
+            local log="probe-logs/$name.log"
+            if "$@" >"$log" 2>&1; then
+              echo "- ✅ \`$name\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              {
+                echo "- ❌ \`$name\`"
+                echo
+                echo '  ```'
+                grep -E '^(error|warning: unused manifest)|could not compile|failed to run custom build|ld: |linker' "$log" | head -n 15 | sed 's/^/  /'
+                echo '  ```'
+                echo
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          probe "player-check"     cargo check -p player --target "$TARGET"
+          probe "app-check"        cargo check -p limusic-app --lib --target "$TARGET"
+          # Linking is where libmpv is expected to fail: staticlib itself does not link, but the
+          # cdylib crate-type in src-tauri/Cargo.toml does.
+          probe "player-build"     cargo build -p player --target "$TARGET"
+          probe "app-build"        cargo build -p limusic-app --lib --target "$TARGET"
+
+          # What iOS resolves for the app crate. Every desktop-only dependency in src-tauri/Cargo.toml
+          # is unconditional, so they all show up here; this is the list to move behind cfg gates.
+          cargo tree -p limusic-app --target "$TARGET" --depth 1 > probe-logs/app-deps.txt 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-probe-logs
+          path: probe-logs/
+          if-no-files-found: warn
+
+  tauri-ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios-tauri
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Build the UI
+        working-directory: ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # xcodegen is what `tauri ios init` shells out to for the Xcode project.
+      - name: Tooling
+        run: |
+          brew install xcodegen
+          cargo install tauri-cli --version "^2" --locked
+
+      # The UI is already built above, and tauri's beforeBuildCommand (`pnpm build`) does not run
+      # in the ui/ directory, so blank it for these invocations instead of editing the shared
+      # tauri.conf.json.
+      - name: tauri ios init
+        id: init
+        continue-on-error: true
+        run: |
+          cargo tauri ios init --ci \
+            --config '{"build":{"beforeBuildCommand":"","beforeDevCommand":""}}' \
+            2>&1 | tee ios-init.log
+
+      # Simulator build, so no signing identity or provisioning profile is needed. This is the
+      # first thing that will exercise the whole dependency graph for iOS at once.
+      - name: tauri ios build (simulator)
+        id: build
+        if: steps.init.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cargo tauri ios build --ci --debug --target aarch64-sim \
+            --config '{"build":{"beforeBuildCommand":"","beforeDevCommand":""}}' \
+            2>&1 | tee ios-build.log
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## tauri ios"
+            echo
+            echo "- init: \`${{ steps.init.outcome }}\`"
+            echo "- build (simulator): \`${{ steps.build.outcome }}\`"
+            if [ "${{ steps.build.outcome }}" = "failure" ] && [ -f ios-build.log ]; then
+              echo
+              echo '```'
+              grep -E '^(error|Error)|could not compile|failed to run custom build|ld: ' ios-build.log | head -n 20
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-tauri-logs
+          path: |
+            ios-init.log
+            ios-build.log
+            src-tauri/gen/apple/project.yml
+          if-no-files-found: ignore
