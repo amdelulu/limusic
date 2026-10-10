@@ -107,6 +107,9 @@ jobs:
         shell: bash
         run: |
           set -u
+          # rquickjs-sys uses bindgen for Apple's targets; give libclang the matching SDK
+          # headers instead of the macOS host headers.
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$(xcrun --sdk iphoneos --show-sdk-path)"
           mkdir -p probe-logs
           {
             echo "## iOS spike probe"
@@ -211,6 +214,7 @@ jobs:
         if: steps.init.outcome == 'success'
         continue-on-error: true
         run: |
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)"
           cargo tauri ios build --ci --debug --target aarch64-sim \
             --config '{"build":{"beforeBuildCommand":"","beforeDevCommand":""}}' \
             2>&1 | tee ios-build.log

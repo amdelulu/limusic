@@ -8,6 +8,10 @@ mod commands;
 mod db;
 mod diagnostics;
 mod discord;
+#[cfg(not(target_os = "ios"))]
+mod hotkeys;
+#[cfg(target_os = "ios")]
+#[path = "hotkeys/ios.rs"]
 mod hotkeys;
 mod http;
 mod import;
@@ -24,6 +28,9 @@ mod nativevideo;
 #[cfg(windows)]
 #[path = "nativevideo_windows.rs"]
 mod nativevideo;
+#[cfg(target_os = "ios")]
+#[path = "nativevideo/ios.rs"]
+mod nativevideo;
 mod notify;
 mod orchestrator;
 #[cfg(not(target_os = "ios"))]
@@ -37,6 +44,10 @@ mod spotify;
 mod state;
 #[cfg(target_os = "windows")]
 mod taskbar;
+#[cfg(not(target_os = "ios"))]
+mod tray;
+#[cfg(target_os = "ios")]
+#[path = "tray/ios.rs"]
 mod tray;
 mod videoproxy;
 mod webview;
@@ -369,6 +380,17 @@ pub fn run() {
         }));
     }
 
+    #[cfg(not(target_os = "ios"))]
+    let builder = builder.plugin(
+        tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(|app, shortcut, event| {
+                if let Some(mgr) = app.try_state::<Arc<hotkeys::HotkeysManager>>() {
+                    mgr.handle_event(app, shortcut, event.state());
+                }
+            })
+            .build(),
+    );
+
     builder
         // The hidden cipher webview's document (webview.rs). A registered scheme, because a
         // `data:` URL is not a document WebView2 will navigate to.
@@ -403,15 +425,6 @@ pub fn run() {
                         | tauri_plugin_window_state::StateFlags::MAXIMIZED,
                 )
                 .with_filter(|label| label == "main")
-                .build(),
-        )
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, shortcut, event| {
-                    if let Some(mgr) = app.try_state::<Arc<hotkeys::HotkeysManager>>() {
-                        mgr.handle_event(app, shortcut, event.state());
-                    }
-                })
                 .build(),
         )
         .setup(|app| {
