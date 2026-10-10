@@ -224,14 +224,14 @@ jobs:
             if [ "${{ steps.build.outcome }}" = "failure" ] && [ -f ios-build.log ]; then
               echo
               echo '```'
-              grep -E '^(error|Error)|could not compile|failed to run custom build|ld: ' ios-build.log | head -n 20
+              grep -E '^(error|Error)|could not compile|failed to run custom build|ld: ' ios-build.log | head -n 20 || true
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           for f in ios-init.log ios-build.log; do
             [ -f "$f" ] || continue
             grep -E -A3 '^(error|Error)|failed to run custom build|ld: ' "$f" | head -n 20 \
-              | while IFS= read -r l; do echo "::warning title=tauri $f::${l//%/%25}"; done
+              | while IFS= read -r l; do echo "::warning title=tauri $f::${l//%/%25}"; done || true
           done
 
       - uses: actions/upload-artifact@v4
