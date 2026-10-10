@@ -118,14 +118,18 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # annotate <title> <logfile>: one multi-line annotation with the error context. GitHub only
-          # shows ~10 annotations per step, so a line per annotation loses the stderr that follows
-          # "failed to run custom build command"; %0A keeps it all in one.
+          # annotate <title> <logfile>: errors only (xcodebuild prints a device list that otherwise
+          # fills the annotation), then the log tail. One annotation each, newlines as %0A. GitHub
+          # caps a message at 4 KB, so each is cut to fit.
           annotate() {
-            local body
-            body=$( { grep -E -B2 -A40 'failed to run custom build|^error|ld: ' "$2" || true; } \
-              | head -n 160 | sed 's/\x1b\[[0-9;]*m//g; s/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-            echo "::warning title=$1::${body}"
+            local errs tail_
+            errs=$( { grep -v -E '^\{ platform:|^\s*$' "$2" \
+              | grep -E -i -B1 -A4 'error|undefined symbol|ld: |fatal|BUILD FAILED|failed to run custom build' || true; } \
+              | sed 's/\x1b\[[0-9;]*m//g; s/\r//g' | head -c 3600 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            tail_=$(grep -v -E '^\{ platform:' "$2" | tail -n 25 \
+              | sed 's/\x1b\[[0-9;]*m//g; s/\r//g' | head -c 3600 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=$1 errors::${errs}"
+            echo "::warning title=$1 tail::${tail_}"
           }
 
           # probe <name> <command...>: run it, log it, report pass/fail plus the first errors.
@@ -244,19 +248,25 @@ jobs:
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          # annotate <title> <logfile>: one multi-line annotation with the error context. GitHub only
-          # shows ~10 annotations per step, so a line per annotation loses the stderr that follows
-          # "failed to run custom build command"; %0A keeps it all in one.
+          # annotate <title> <logfile>: errors only (xcodebuild prints a device list that otherwise
+          # fills the annotation), then the log tail. One annotation each, newlines as %0A. GitHub
+          # caps a message at 4 KB, so each is cut to fit.
           annotate() {
-            local body
-            body=$( { grep -E -B2 -A40 'failed to run custom build|^error|ld: ' "$2" || true; } \
-              | head -n 160 | sed 's/\x1b\[[0-9;]*m//g; s/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
-            echo "::warning title=$1::${body}"
+            local errs tail_
+            errs=$( { grep -v -E '^\{ platform:|^\s*$' "$2" \
+              | grep -E -i -B1 -A4 'error|undefined symbol|ld: |fatal|BUILD FAILED|failed to run custom build' || true; } \
+              | sed 's/\x1b\[[0-9;]*m//g; s/\r//g' | head -c 3600 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            tail_=$(grep -v -E '^\{ platform:' "$2" | tail -n 25 \
+              | sed 's/\x1b\[[0-9;]*m//g; s/\r//g' | head -c 3600 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=$1 errors::${errs}"
+            echo "::warning title=$1 tail::${tail_}"
           }
 
           for f in ios-init.log ios-build.log; do
             if [ -f "$f" ]; then annotate "tauri $f" "$f"; fi
           done
+          # continue-on-error reports `conclusion: success` for a failed step; the raw outcome is here.
+          echo "::notice title=tauri outcomes::init=${{ steps.init.outcome }} build=${{ steps.build.outcome }}"
 
       - uses: actions/upload-artifact@v4
         if: always()
