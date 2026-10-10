@@ -26,6 +26,10 @@ mod nativevideo;
 mod nativevideo;
 mod notify;
 mod orchestrator;
+#[cfg(not(target_os = "ios"))]
+mod potoken;
+#[cfg(target_os = "ios")]
+#[path = "potoken/ios.rs"]
 mod potoken;
 mod romanize;
 mod session;

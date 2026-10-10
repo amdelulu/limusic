@@ -29,10 +29,6 @@ tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 # Phase 2 extraction stack (cipher + PoToken). context/04, 05, 13.
-# BotGuard runs under deno_core + JSDOM, NOT in a hidden webview. Every token a real browser engine
-# mints is rejected by googlevideo; a minimal-DOM runtime is the only one that produces an accepted
-# one. Measured in `progress/active/webremix-stream-403.md`. This pulls in V8.
-rustypipe-botguard = "0.1.2"
 base64 = "0.22"
 regex = "1"
 urlencoding = "2"
@@ -77,6 +73,11 @@ zip = { version = "4", default-features = false, features = ["deflate-flate2"] }
 csv = "1"
 strsim = "0.11"
 unicode-normalization = "0.1"
+
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+# BotGuard runs under deno_core + JSDOM on desktop. Its embedded V8 runtime does not support the
+# iOS target; iOS instead uses a no-op PoToken implementation and the resolver's normal fallback.
+rustypipe-botguard = "0.1.2"
 
 # Taskbar thumbnail toolbar (#47). Same `windows` version tauri-runtime-wry already pulls in, so
 # `Window::hwnd()` hands us a matching HWND.
