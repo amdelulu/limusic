@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-shortcuts",
+  "description": "global shortcuts exist on desktop only; the plugin is not built for iOS",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": [
+    "main",
+    "mini"
+  ],
+  "permissions": [
+    "global-shortcut:default"
+  ]
+}

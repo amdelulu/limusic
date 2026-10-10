@@ -215,6 +215,7 @@ jobs:
       - name: tauri ios init
         id: init
         continue-on-error: true
+        shell: bash
         run: |
           cargo tauri ios init --ci \
             --config '{"build":{"beforeBuildCommand":"","beforeDevCommand":""}}' \
@@ -226,8 +227,12 @@ jobs:
         id: build
         if: steps.init.outcome == 'success'
         continue-on-error: true
+        shell: bash
         run: |
-          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          # rquickjs-sys hands Rust's triple to clang, and `aarch64-apple-ios-sim` is not a clang
+          # triple ("version 'sim' in target triple is invalid"). A later --target wins, so
+          # override it here with the one clang spells.
+          export BINDGEN_EXTRA_CLANG_ARGS="--target=arm64-apple-ios-simulator --sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)"
           cargo tauri ios build --ci --debug --target aarch64-sim \
             --config '{"build":{"beforeBuildCommand":"","beforeDevCommand":""}}' \
             2>&1 | tee ios-build.log

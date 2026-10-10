@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged over the generated Info.plist by `tauri ios build` (macOS has its own, so this is
+     named for iOS only). -->
+<plist version="1.0">
+<dict>
+	<!-- Keep playing with the screen locked or the app in the background. Needs the audio session
+	     category set to playback, which the player does at startup. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<!-- The player reads the audio stream from the app's own loopback proxy
+	     (http://127.0.0.1:<port>/...), which is plain HTTP by design: it only ever listens on
+	     loopback. ATS blocks that for AVFoundation unless told otherwise. Both keys are scoped
+	     narrowly: local networking, and media loads only. Nothing else gets to use plain HTTP. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

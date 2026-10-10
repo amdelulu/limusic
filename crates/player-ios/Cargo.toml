@@ -1,0 +1,17 @@
+[package]
+name = "player-ios"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "iOS audio backend for Limusic: same API as the libmpv `player` crate, played by the WebView"
+
+# Pure Rust on purpose. libmpv has no iOS build, so on iOS `limusic-app` depends on this crate under
+# the name `player` (see src-tauri/Cargo.toml) and the rest of the app compiles unchanged. The
+# audio itself is an <audio> element in the WebView: this side sends it commands (through a bridge
+# the app installs) and turns what it reports back into the same `PlayerEvent`s the mpv player emits.
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
