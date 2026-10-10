@@ -118,6 +118,16 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # annotate <title> <logfile>: one multi-line annotation with the error context. GitHub only
+          # shows ~10 annotations per step, so a line per annotation loses the stderr that follows
+          # "failed to run custom build command"; %0A keeps it all in one.
+          annotate() {
+            local body
+            body=$( { grep -E -B2 -A40 'failed to run custom build|^error|ld: ' "$2" || true; } \
+              | head -n 160 | sed 's/\x1b\[[0-9;]*m//g; s/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=$1::${body}"
+          }
+
           # probe <name> <command...>: run it, log it, report pass/fail plus the first errors.
           # Never exits non-zero, so every probe gets to run.
           probe() {
@@ -135,8 +145,7 @@ jobs:
                 echo
               } >> "$GITHUB_STEP_SUMMARY"
               # Same errors as annotations, so they are readable without the log download.
-              grep -E -A4 '^error|failed to run custom build|ld: ' "$log" | head -n 20 \
-                | while IFS= read -r l; do echo "::warning title=probe $name::${l//%/%25}"; done
+              annotate "probe $name" "$log"
             fi
           }
 
@@ -235,10 +244,18 @@ jobs:
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # annotate <title> <logfile>: one multi-line annotation with the error context. GitHub only
+          # shows ~10 annotations per step, so a line per annotation loses the stderr that follows
+          # "failed to run custom build command"; %0A keeps it all in one.
+          annotate() {
+            local body
+            body=$( { grep -E -B2 -A40 'failed to run custom build|^error|ld: ' "$2" || true; } \
+              | head -n 160 | sed 's/\x1b\[[0-9;]*m//g; s/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=$1::${body}"
+          }
+
           for f in ios-init.log ios-build.log; do
-            [ -f "$f" ] || continue
-            grep -E -A3 '^(error|Error)|failed to run custom build|ld: ' "$f" | head -n 20 \
-              | while IFS= read -r l; do echo "::warning title=tauri $f::${l//%/%25}"; done || true
+            if [ -f "$f" ]; then annotate "tauri $f" "$f"; fi
           done
 
       - uses: actions/upload-artifact@v4
