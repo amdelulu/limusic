@@ -156,7 +156,9 @@ jobs:
           if-no-files-found: warn
 
   tauri-ios:
-    runs-on: macos-14
+    # XcodeGen currently emits Xcode 16 project format (objectVersion 77), which the
+    # macos-14 runner's Xcode cannot open. macos-15 provides a compatible Xcode 16 toolchain.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -187,6 +189,7 @@ jobs:
       # xcodegen is what `tauri ios init` shells out to for the Xcode project.
       - name: Tooling
         run: |
+          xcodebuild -version
           brew install xcodegen
           cargo install tauri-cli --version "^2" --locked
 
